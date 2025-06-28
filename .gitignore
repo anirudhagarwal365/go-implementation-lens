@@ -1,0 +1,35 @@
+# Node.js dependencies
+node_modules/
+
+# TypeScript compiled output
+out/
+
+# VS Code extension package
+*.vsix
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/settings.json
+.idea/
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Test coverage
+coverage/
