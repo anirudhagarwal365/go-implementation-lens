@@ -6,15 +6,15 @@ export class GoInterfaceGutterProvider {
     private typeDecorationType: vscode.TextEditorDecorationType;
 
     constructor(private goAnalyzer: GoAnalyzer, private context: vscode.ExtensionContext) {
-        // Create simple colored circles in the gutter
+        // Create gutter icons for interfaces and types
         this.interfaceDecorationType = vscode.window.createTextEditorDecorationType({
-            gutterIconPath: context.asAbsolutePath('resources/interface.svg'),
-            gutterIconSize: 'auto'
+            gutterIconPath: context.asAbsolutePath('resources/emojione--down-arrow.svg'),
+            gutterIconSize: '12px'
         });
 
         this.typeDecorationType = vscode.window.createTextEditorDecorationType({
-            gutterIconPath: context.asAbsolutePath('resources/type.svg'),
-            gutterIconSize: 'auto'
+            gutterIconPath: context.asAbsolutePath('resources/emojione--up-arrow.svg'),
+            gutterIconSize: '12px'
         });
     }
 
