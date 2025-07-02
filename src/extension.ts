@@ -4,7 +4,7 @@ import { GoInterfaceGutterProvider } from './gutterDecorationProvider';
 import { GoAnalyzer } from './goAnalyzer';
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Go Interface Lens extension is now active!');
+    console.log('Go Implementation Lens - extension is now active!');
 
     const goAnalyzer = new GoAnalyzer();
     const codeLensProvider = new GoInterfaceCodeLensProvider(goAnalyzer);
@@ -36,27 +36,27 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Command to toggle CodeLens functionality
     const toggleCodeLensCommand = vscode.commands.registerCommand(
-        'goInterfaceLens.toggleCodeLens',
+        'goImplementationLens.toggleCodeLens',
         () => {
-            const config = vscode.workspace.getConfiguration('goInterfaceLens');
+            const config = vscode.workspace.getConfiguration('goImplementationLens');
             const currentValue = config.get<boolean>('enable', true);
             config.update('enable', !currentValue, vscode.ConfigurationTarget.Global);
             
             const status = !currentValue ? 'enabled' : 'disabled';
-            vscode.window.showInformationMessage(`Interface CodeLens ${status}`);
+            vscode.window.showInformationMessage(`Implementation CodeLens ${status}`);
         }
     );
 
     // Command to toggle gutter icons functionality  
     const toggleGutterIconsCommand = vscode.commands.registerCommand(
-        'goInterfaceLens.toggleGutterIcons',
+        'goImplementationLens.toggleGutterIcons',
         () => {
-            const config = vscode.workspace.getConfiguration('goInterfaceLens');
+            const config = vscode.workspace.getConfiguration('goImplementationLens');
             const currentValue = config.get<boolean>('showGutterIcons', true);
             config.update('showGutterIcons', !currentValue, vscode.ConfigurationTarget.Global);
             
             const status = !currentValue ? 'enabled' : 'disabled';
-            vscode.window.showInformationMessage(`Interface Gutter Icons ${status}`);
+            vscode.window.showInformationMessage(`Implementation Gutter Icons ${status}`);
             
             // Refresh gutter decorations immediately
             vscode.window.visibleTextEditors.forEach(editor => {
@@ -69,15 +69,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Command for showing implementations using our analyzed data
     const showImplementationsCommand = vscode.commands.registerCommand(
-        'goInterfaceLens.showImplementations',
+        'goImplementationLens.showImplementations',
         async (implementations: vscode.Location[]) => {
-            console.log(`CodeLens clicked - showImplementations with ${implementations.length} implementations`);
             try {
                 if (implementations && implementations.length > 0) {
                     if (implementations.length === 1) {
                         // Single implementation - navigate directly
                         const location = implementations[0];
-                        console.log(`Navigating to single implementation: ${location.uri.fsPath}:${location.range.start.line}:${location.range.start.character}`);
                         await goToLocation(location);
                     } else {
                         // Multiple implementations - show quick pick
@@ -96,13 +94,11 @@ export function activate(context: vscode.ExtensionContext) {
                         });
                         
                         if (selected) {
-                            console.log(`Navigating to selected implementation: ${selected.location.uri.fsPath}:${selected.location.range.start.line}:${selected.location.range.start.character}`);
                             await goToLocation(selected.location);
                         }
                     }
                 }
             } catch (error) {
-                console.error('Error in showImplementations:', error);
                 vscode.window.showErrorMessage(`Error showing implementations: ${error}`);
             }
         }
@@ -110,9 +106,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Simple command for navigating to interface definition
     const goToInterfaceCommand = vscode.commands.registerCommand(
-        'goInterfaceLens.goToInterface',
+        'goImplementationLens.goToInterface',
         async (uri: string, position: {line: number, character: number}) => {
-            console.log(`CodeLens clicked - goToInterface: URI: ${uri}, Position: ${position.line}:${position.character}`);
             try {
                 const documentUri = vscode.Uri.parse(uri);
                 const vscodePosition = new vscode.Position(position.line, position.character);
@@ -128,15 +123,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Command for navigating to interface definitions from struct CodeLens
     const goToInterfaceDefinitionsCommand = vscode.commands.registerCommand(
-        'goInterfaceLens.goToInterfaceDefinitions',
+        'goImplementationLens.goToInterfaceDefinitions',
         async (interfaceLocations: vscode.Location[]) => {
-            console.log(`CodeLens clicked - goToInterfaceDefinitions with ${interfaceLocations.length} interfaces`);
             try {
                 if (interfaceLocations && interfaceLocations.length > 0) {
                     if (interfaceLocations.length === 1) {
                         // Single interface - navigate directly
                         const location = interfaceLocations[0];
-                        console.log(`Navigating to single interface: ${location.uri.fsPath}:${location.range.start.line}:${location.range.start.character}`);
                         await goToLocation(location);
                     } else {
                         // Multiple interfaces - show quick pick
@@ -155,13 +148,11 @@ export function activate(context: vscode.ExtensionContext) {
                         });
                         
                         if (selected) {
-                            console.log(`Navigating to selected interface: ${selected.location.uri.fsPath}:${selected.location.range.start.line}:${selected.location.range.start.character}`);
                             await goToLocation(selected.location);
                         }
                     }
                 }
             } catch (error) {
-                console.error('Error in goToInterfaceDefinitions:', error);
                 vscode.window.showErrorMessage(`Error navigating to interface definitions: ${error}`);
             }
         }
@@ -203,7 +194,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Refresh when configuration changes
     vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('goInterfaceLens')) {
+        if (e.affectsConfiguration('goImplementationLens')) {
             codeLensProvider.refresh();
             vscode.window.visibleTextEditors.forEach(editor => {
                 if (editor.document.languageId === 'go') {

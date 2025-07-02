@@ -1,11 +1,11 @@
 #!/bin/bash
 
-echo "=== Go Interface Lens Status Check ==="
+echo "=== Go Implementation Lens Status Check ==="
 echo
 
 echo "1. Extension Structure:"
 echo "----------------------"
-ls -la src/extension.ts src/goAnalyzer.ts src/goInterfaceLensProvider.ts 2>/dev/null | head -3
+ls -la src/extension.ts src/goAnalyzer.ts src/codeLensProvider.ts 2>/dev/null | head -3
 echo
 
 echo "2. Compiled Output:"

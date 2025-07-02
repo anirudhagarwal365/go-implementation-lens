@@ -1,34 +1,5 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { log } from 'console';
 
-class Logger {
-    private logPath: string;
-    
-    constructor() {
-        this.logPath = path.join(os.tmpdir(), 'go-interface-lens.log');
-        this.log(`=== Go Interface Lens Debug Log Started at ${new Date().toISOString()} ===`);
-    }
-    
-    log(message: string) {
-        const timestamp = new Date().toISOString();
-        const logEntry = `[${timestamp}] ${message}\n`;
-        console.log(message);
-        try {
-            fs.appendFileSync(this.logPath, logEntry);
-        } catch (error) {
-            // Ignore file write errors
-        }
-    }
-    
-    getLogPath(): string {
-        return this.logPath;
-    }
-}
-
-const logger = new Logger();
 
 export interface InterfaceInfo {
     name: string;
@@ -63,24 +34,15 @@ export class GoAnalyzer {
 
     invalidateCache(filePath: string) {
         this.cache.delete(filePath);
-        logger.log(`Cache invalidated for: ${filePath}`);
     }
 
-    getLogPath(): string {
-        return logger.getLogPath();
-    }
 
     async analyzeDocument(document: vscode.TextDocument): Promise<{ interfaces: InterfaceInfo[], types: TypeInfo[], methodImplementations: TypeMethodInfo[] }> {
         const currentVersion = document.version;
         const cached = this.cache.get(document.uri.fsPath);
         
         if (cached && cached.documentVersion === currentVersion) {
-            logger.log(`Using cached analysis for ${document.uri.fsPath} (document version ${currentVersion} unchanged)`);
             return { ...cached, methodImplementations: cached.methodImplementations || [] };
-        }
-        
-        if (cached && cached.documentVersion !== currentVersion) {
-            logger.log(`Document version changed for ${document.uri.fsPath} (${cached.documentVersion} → ${currentVersion}), re-analyzing`);
         }
 
         const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
@@ -112,17 +74,10 @@ export class GoAnalyzer {
         methodImplementations: TypeMethodInfo[]
     ) {
         for (const symbol of symbols) {
-            if (symbol.name.indexOf('RedisTrackedJobPayload') >= 0) {
-                logger.log(`Processing symbol: ${symbol.name} (${this.getSymbolKindName(symbol.kind)}) at ${symbol.range.start.line}:${symbol.range.start.character}`);
-            }
             
             // Check if this symbol has implementations using gopls
             const implementations = await this.getImplementationsFromGopls(document.uri, symbol.selectionRange.start);
-            const implementations2 = await this.getImplementationsFromGopls(document.uri, symbol.range.start);
             
-            if (symbol.kind === vscode.SymbolKind.Struct || symbol.name.indexOf('Person') >= 0) {
-                logger.log(`Processing struct symbol: ${symbol.name} at ${symbol.range.start.line}:${symbol.range.start.character}`);
-            }
             
             if (implementations.length > 0) {
                 // Categorize based on symbol type
@@ -152,7 +107,6 @@ export class GoAnalyzer {
             
             return implementations || [];
         } catch (error) {
-            logger.log(`Error getting implementations from gopls: ${error}`);
             return [];
         }
     }
@@ -194,7 +148,7 @@ export class GoAnalyzer {
         });
     }
 
-    private async processMethod(symbol: vscode.DocumentSymbol, document: vscode.TextDocument, implementations: vscode.Location[], methodImplementations: TypeMethodInfo[]) {
+    private async processMethod(symbol: vscode.DocumentSymbol, _document: vscode.TextDocument, implementations: vscode.Location[], methodImplementations: TypeMethodInfo[]) {
         // For methods/functions, implementations might point to interface methods they implement
         // We'll take the first implementation as the interface method (if any)
         const interfaceMethod = implementations.length > 0 ? implementations[0] : undefined;
@@ -206,37 +160,6 @@ export class GoAnalyzer {
         });
     }
 
-    private getSymbolKindName(kind: vscode.SymbolKind): string {
-        const kindNames = {
-            [vscode.SymbolKind.File]: 'File',
-            [vscode.SymbolKind.Module]: 'Module',
-            [vscode.SymbolKind.Namespace]: 'Namespace',
-            [vscode.SymbolKind.Package]: 'Package',
-            [vscode.SymbolKind.Class]: 'Class',
-            [vscode.SymbolKind.Method]: 'Method',
-            [vscode.SymbolKind.Property]: 'Property',
-            [vscode.SymbolKind.Field]: 'Field',
-            [vscode.SymbolKind.Constructor]: 'Constructor',
-            [vscode.SymbolKind.Enum]: 'Enum',
-            [vscode.SymbolKind.Interface]: 'Interface',
-            [vscode.SymbolKind.Function]: 'Function',
-            [vscode.SymbolKind.Variable]: 'Variable',
-            [vscode.SymbolKind.Constant]: 'Constant',
-            [vscode.SymbolKind.String]: 'String',
-            [vscode.SymbolKind.Number]: 'Number',
-            [vscode.SymbolKind.Boolean]: 'Boolean',
-            [vscode.SymbolKind.Array]: 'Array',
-            [vscode.SymbolKind.Object]: 'Object',
-            [vscode.SymbolKind.Key]: 'Key',
-            [vscode.SymbolKind.Null]: 'Null',
-            [vscode.SymbolKind.EnumMember]: 'EnumMember',
-            [vscode.SymbolKind.Struct]: 'Struct',
-            [vscode.SymbolKind.Event]: 'Event',
-            [vscode.SymbolKind.Operator]: 'Operator',
-            [vscode.SymbolKind.TypeParameter]: 'TypeParameter'
-        };
-        return kindNames[kind] || `Unknown(${kind})`;
-    }
 
 
     async getSymbolName(location: vscode.Location): Promise<string | undefined> {
@@ -248,7 +171,6 @@ export class GoAnalyzer {
             );
             
             if (!symbols) {
-                logger.log(`No symbols found for document: ${location.uri.fsPath}`);
                 return this.getSymbolNameFallback(location);
             }
             
@@ -256,15 +178,12 @@ export class GoAnalyzer {
             const targetSymbol = this.findSymbolAtPosition(symbols, location.range.start);
             
             if (targetSymbol) {
-                logger.log(`Found symbol at position ${location.range.start.line}:${location.range.start.character}: ${targetSymbol.name} (${this.getSymbolKindName(targetSymbol.kind)})`);
                 return targetSymbol.name;
             }
             
-            logger.log(`No symbol found at position ${location.range.start.line}:${location.range.start.character}, using fallback`);
             return this.getSymbolNameFallback(location);
             
         } catch (error) {
-            logger.log(`Error getting symbol name via symbol provider: ${error}, using fallback`);
             return this.getSymbolNameFallback(location);
         }
     }
@@ -278,7 +197,6 @@ export class GoAnalyzer {
             );
             
             if (!symbols) {
-                logger.log(`No symbols found for interface document: ${location.uri.fsPath}`);
                 return this.getSymbolName(location); // Fall back to just method name
             }
             
@@ -286,7 +204,6 @@ export class GoAnalyzer {
             const methodSymbol = this.findSymbolAtPosition(symbols, location.range.start);
             
             if (!methodSymbol) {
-                logger.log(`No method symbol found at position ${location.range.start.line}:${location.range.start.character}`);
                 return this.getSymbolName(location); // Fall back to just method name
             }
             
@@ -294,16 +211,13 @@ export class GoAnalyzer {
             const parentInterface = this.findParentInterface(symbols, methodSymbol);
             
             if (parentInterface) {
-                logger.log(`Found interface.method: ${parentInterface.name}.${methodSymbol.name}`);
                 return `${parentInterface.name}.${methodSymbol.name}`;
             }
             
             // If no parent interface found, just return the method name
-            logger.log(`No parent interface found for method ${methodSymbol.name}, returning method name only`);
             return methodSymbol.name;
             
         } catch (error) {
-            logger.log(`Error getting interface.method name: ${error}`);
             return this.getSymbolName(location); // Fall back to just method name
         }
     }
@@ -400,7 +314,6 @@ export class GoAnalyzer {
             match = text.match(/\b(\w+)\b/);
             return match ? match[1] : undefined;
         } catch (error) {
-            logger.log(`Error in symbol name fallback: ${error}`);
             return undefined;
         }
     }

@@ -1,9 +1,9 @@
 {
-  "name": "go-interface-lens",
-  "displayName": "Go Interface Lens",
+  "name": "go-implementation-lens",
+  "displayName": "Go Implementation Lens",
   "description": "Shows interface implementations in Go code with gutter icons and clickable CodeLens",
   "version": "0.0.2",
-  "publisher": "go-interface-lens",
+  "publisher": "go-implementation-lens",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -24,29 +24,29 @@
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
-      "title": "Go Interface Lens",
+      "title": "Go Implementation Lens",
       "properties": {
-        "goInterfaceLens.enable": {
+        "goImplementationLens.enable": {
           "type": "boolean",
           "default": true,
-          "description": "Enable/disable Go interface lens"
+          "description": "Enable/disable Go implementation lens"
         },
-        "goInterfaceLens.showOnInterfaces": {
+        "goImplementationLens.showOnInterfaces": {
           "type": "boolean",
           "default": true,
           "description": "Show implementations on interface definitions"
         },
-        "goInterfaceLens.showOnTypes": {
+        "goImplementationLens.showOnTypes": {
           "type": "boolean",
           "default": true,
           "description": "Show implemented interfaces on type definitions"
         },
-        "goInterfaceLens.showOnInterfaceHeader": {
+        "goImplementationLens.showOnInterfaceHeader": {
           "type": "boolean",
           "default": false,
           "description": "Show total implementations on interface header (in addition to per-method)"
         },
-        "goInterfaceLens.showGutterIcons": {
+        "goImplementationLens.showGutterIcons": {
           "type": "boolean",
           "default": true,
           "description": "Show interface/implementation icons in the gutter"
@@ -55,12 +55,12 @@
     },
     "commands": [
       {
-        "command": "goInterfaceLens.toggleCodeLens",
-        "title": "Go: Toggle Interface CodeLens"
+        "command": "goImplementationLens.toggleCodeLens",
+        "title": "Go: Toggle Implementation CodeLens"
       },
       {
-        "command": "goInterfaceLens.toggleGutterIcons",
-        "title": "Go: Toggle Interface Gutter Icons"
+        "command": "goImplementationLens.toggleGutterIcons",
+        "title": "Go: Toggle Implementation Gutter Icons"
       }
     ]
   },

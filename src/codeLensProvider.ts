@@ -12,7 +12,7 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
             return [];
         }
 
-        const config = vscode.workspace.getConfiguration('goInterfaceLens');
+        const config = vscode.workspace.getConfiguration('goImplementationLens');
         if (!config.get<boolean>('enable', true)) {
             return [];
         }
@@ -32,7 +32,7 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
                 const lensCommand: vscode.Command = implementationCount > 0 
                     ? {
                         title: title,
-                        command: 'goInterfaceLens.showImplementations',
+                        command: 'goImplementationLens.showImplementations',
                         arguments: [interfaceInfo.implementations]
                     }
                     : {
@@ -54,7 +54,7 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
                     const methodLensCommand: vscode.Command = methodImplCount > 0 
                         ? {
                             title: methodTitle,
-                            command: 'goInterfaceLens.showImplementations',
+                            command: 'goImplementationLens.showImplementations',
                             arguments: [method.implementations]
                         }
                         : {
@@ -84,11 +84,9 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
 
                     if (interfaceNames.length > 0) {
                         const title = `Implements: ${interfaceNames.join(', ')}`;
-                        console.log(`Creating struct CodeLens: "${title}" at ${typeInfo.uri.fsPath}:${typeInfo.range.start.line}:${typeInfo.range.start.character}`);
-                        console.log(`Struct interface locations:`, typeInfo.implementedInterfaces);
                         const lens = new vscode.CodeLens(typeInfo.range, {
                             title: title,
-                            command: 'goInterfaceLens.goToInterfaceDefinitions',
+                            command: 'goImplementationLens.goToInterfaceDefinitions',
                             arguments: [typeInfo.implementedInterfaces]
                         });
                         
@@ -116,7 +114,7 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
                 const title = `Implementing: ${interfaceAndMethodName || 'Interface'}`;
                 const lens = new vscode.CodeLens(methodImpl.range, {
                     title: title,
-                    command: 'goInterfaceLens.goToInterface',
+                    command: 'goImplementationLens.goToInterface',
                     arguments: [
                         methodImpl.interfaceMethod.uri.toString(),
                         {

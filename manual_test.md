@@ -63,17 +63,12 @@ To properly test the extension:
 ## Debug Steps if Tests Fail
 
 1. Check extension output:
-   - View → Output → Select "Go Interface Lens"
+   - View → Output → Select "Go Implementation Lens"
    
-2. Check debug log:
-   ```bash
-   cat /tmp/go-interface-lens.log
-   ```
-
-3. Verify gopls is running:
+2. Verify gopls is running:
    ```bash
    ps aux | grep gopls
    ```
 
-4. Check VS Code Developer Console:
+3. Check VS Code Developer Console:
    - Cmd+Shift+P → "Developer: Toggle Developer Tools"

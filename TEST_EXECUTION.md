@@ -106,7 +106,7 @@ If any tests fail:
 1. **Enable Debug Logging:**
    ```typescript
    // Check logger.getLogPath() output
-   // Look for errors in /tmp/go-interface-lens.log
+   // Check VS Code output panel for errors
    ```
 
 2. **Check VS Code Developer Console:**
@@ -134,7 +134,7 @@ Before any code changes:
 ```bash
 # Check extension is loaded
 # Check gopls is running: ps aux | grep gopls
-# Check log file: cat /tmp/go-interface-lens.log
+# Check VS Code output panel for errors
 ```
 
 ### **Issue: Wrong Implementation Count**

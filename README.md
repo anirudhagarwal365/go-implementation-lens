@@ -1,4 +1,4 @@
-# Go Interface Lens
+# Go Implementation Lens
 
 A VS Code extension that shows interface implementations in Go code using gutter icons (similar to GoLand/IntelliJ), addressing the issue described in [golang/go#56695](https://github.com/golang/go/issues/56695).
 
@@ -29,9 +29,9 @@ The extension uses VS Code's built-in `executeImplementationProvider` command wh
 
 ## Configuration
 
-- `goInterfaceLens.enable`: Enable/disable the extension
-- `goInterfaceLens.showOnInterfaces`: Show implementations on interface definitions
-- `goInterfaceLens.showOnTypes`: Show implemented interfaces on type definitions
+- `goImplementationLens.enable`: Enable/disable the extension
+- `goImplementationLens.showOnInterfaces`: Show implementations on interface definitions
+- `goImplementationLens.showOnTypes`: Show implemented interfaces on type definitions
 
 ## Development
 

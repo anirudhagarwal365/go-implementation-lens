@@ -24,7 +24,7 @@ export class GoInterfaceGutterProvider {
             return;
         }
 
-        const config = vscode.workspace.getConfiguration('goInterfaceLens');
+        const config = vscode.workspace.getConfiguration('goImplementationLens');
         if (!config.get<boolean>('enable', true) || !config.get<boolean>('showGutterIcons', true)) {
             editor.setDecorations(this.interfaceDecorationType, []);
             editor.setDecorations(this.typeDecorationType, []);
