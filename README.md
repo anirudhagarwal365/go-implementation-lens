@@ -1,14 +1,21 @@
 # Go Implementation Lens
 
-A VS Code extension that shows interface implementations in Go code using gutter icons (similar to GoLand/IntelliJ), addressing the issue described in [golang/go#56695](https://github.com/golang/go/issues/56695).
+A VS Code extension that shows interface implementations in Go code using gutter icons (similar to GoLand/IntelliJ), addressing the issue described in [golang/go#56695](https://github.com/golang/go/issues/56695). Features intelligent caching for optimal performance.
+
+![Go Implementation Lens Example](example.png)
 
 ## Features
 
-- **Gutter Icons on Interface Methods**: Shows a green "i" icon next to interface methods that have implementations
-- **Gutter Icons on Types**: Shows a blue "I" icon next to types that implement interfaces
-- **Hover Information**: Hover over icons to see implementation details
-- **Quick Navigation**: Click on links in hover tooltips to navigate to implementations
-- **Real-time Updates**: Icons update automatically as you modify code
+- **CodeLens for Interfaces**: Shows "N implementations" above interface definitions with clickable navigation
+- **CodeLens for Types**: Shows "Implements: Interface1, Interface2..." above struct definitions
+- **Gutter Icons**: Visual indicators in the editor gutter for interfaces and implementations
+- **Smart Navigation**: 
+  - Single implementation: Navigate directly
+  - Multiple implementations: Show quick-pick menu with file locations
+- **Bidirectional Discovery**: Find implementations from interfaces AND find interfaces from implementations
+- **Intelligent Caching**: Document-level caching with automatic invalidation for optimal performance
+- **Real-time Updates**: CodeLens and gutter icons update automatically as you modify code
+- **Configurable Display**: Toggle CodeLens and gutter icons independently
 
 ## How it Works
 

@@ -23,6 +23,14 @@
     "codelens",
     "implementation"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anirudhagarwal365/go-implementation-lens.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anirudhagarwal365/go-implementation-lens/issues"
+  },
+  "homepage": "https://github.com/anirudhagarwal365/go-implementation-lens#readme",
   "activationEvents": [
     "onLanguage:go"
   ],
