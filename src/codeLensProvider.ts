@@ -7,6 +7,22 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
 
     constructor(private goAnalyzer: GoAnalyzer) {}
 
+    private hasCodeLensOfType(codeLenses: vscode.CodeLens[], range: vscode.Range, commandType: 'refs' | 'implementations'): boolean {
+        return codeLenses.some(lens => {
+            if (lens.range.start.line !== range.start.line || 
+                lens.range.start.character !== range.start.character) {
+                return false;
+            }
+            
+            const title = lens.command?.title || '';
+            if (commandType === 'refs') {
+                return title.includes('ref');
+            } else {
+                return title.includes('implementation');
+            }
+        });
+    }
+
     async provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
         if (document.languageId !== 'go') {
             return [];
@@ -18,53 +34,93 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
         }
 
         const codeLenses: vscode.CodeLens[] = [];
-        const { interfaces, types, methodImplementations } = await this.goAnalyzer.analyzeDocument(document);
+        const { interfaces, types, methodImplementations, symbolReferences } = await this.goAnalyzer.analyzeDocument(document);
 
+        // FIRST PASS: Add all reference counts (to ensure refs always appear first)
+        // Add code lenses for symbol references (functions, variables, constants, etc.)
+        for (const symbolRef of symbolReferences) {
+            // Check if we already have a refs CodeLens at this position
+            if (!this.hasCodeLensOfType(codeLenses, symbolRef.range, 'refs')) {
+                const refCount = symbolRef.references.length;
+                const refTitle = refCount === 0 ? '0 refs' : (refCount === 1 ? '1 ref' : `${refCount} refs`);
+                const refCommand = refCount > 0
+                    ? {
+                        title: refTitle,
+                        command: 'goImplementationLens.showReferences',
+                        arguments: [symbolRef.references]
+                    }
+                    : {
+                        title: refTitle,
+                        command: ''  // No command when 0 refs
+                    };
+                const refLens = new vscode.CodeLens(symbolRef.range, refCommand);
+                codeLenses.push(refLens);
+            }
+        }
+
+        // SECOND PASS: Add all other CodeLens items
         // Add code lenses for interfaces
         if (config.get<boolean>('showOnInterfaces', true)) {
             for (const interfaceInfo of interfaces) {
                 // Add CodeLens for the interface itself (always show)
                 const implementationCount = interfaceInfo.implementations.length;
-                const title = implementationCount === 0 
-                    ? 'No implementations' 
-                    : `${implementationCount} implementation${implementationCount === 1 ? '' : 's'}`;
-
-                const lensCommand: vscode.Command = implementationCount > 0 
-                    ? {
-                        title: title,
-                        command: 'goImplementationLens.showImplementations',
-                        arguments: [interfaceInfo.implementations]
-                    }
-                    : {
-                        title: title,
-                        command: ''
-                    };
+                // Note: References are now handled in the first pass for ALL symbols including interfaces
                 
-                const lens = new vscode.CodeLens(interfaceInfo.range, lensCommand);
-                
-                codeLenses.push(lens);
+                // Add implementation CodeLens (always show, even if 0)
+                if (!this.hasCodeLensOfType(codeLenses, interfaceInfo.range, 'implementations')) {
+                    const implTitle = implementationCount === 0 ? '0 implementations' : (implementationCount === 1 ? '1 implementation' : `${implementationCount} implementations`);
+                    const implCommand = implementationCount > 0
+                        ? {
+                            title: implTitle,
+                            command: 'goImplementationLens.showImplementations',
+                            arguments: [interfaceInfo.implementations]
+                        }
+                        : {
+                            title: implTitle,
+                            command: ''  // No command when 0 implementations
+                        };
+                    const implLens = new vscode.CodeLens(interfaceInfo.range, implCommand);
+                    codeLenses.push(implLens);
+                }
                 
                 // Add CodeLens for each method in the interface
                 for (const method of interfaceInfo.methods) {
                     const methodImplCount = method.implementations.length;
-                    const methodTitle = methodImplCount === 0 
-                        ? 'No implementations' 
-                        : `${methodImplCount} implementation${methodImplCount === 1 ? '' : 's'}`;
-
-                    const methodLensCommand: vscode.Command = methodImplCount > 0 
-                        ? {
-                            title: methodTitle,
-                            command: 'goImplementationLens.showImplementations',
-                            arguments: [method.implementations]
-                        }
-                        : {
-                            title: methodTitle,
-                            command: ''
-                        };
+                    const methodRefCount = method.references.length;
                     
-                    const methodLens = new vscode.CodeLens(method.range, methodLensCommand);
+                    // Add reference CodeLens for method (always show, even if 0)
+                    if (!this.hasCodeLensOfType(codeLenses, method.range, 'refs')) {
+                        const refTitle = methodRefCount === 0 ? '0 refs' : (methodRefCount === 1 ? '1 ref' : `${methodRefCount} refs`);
+                        const refCommand = methodRefCount > 0
+                            ? {
+                                title: refTitle,
+                                command: 'goImplementationLens.showReferences',
+                                arguments: [method.references]
+                            }
+                            : {
+                                title: refTitle,
+                                command: ''  // No command when 0 refs
+                            };
+                        const refLens = new vscode.CodeLens(method.range, refCommand);
+                        codeLenses.push(refLens);
+                    }
                     
-                    codeLenses.push(methodLens);
+                    // Add implementation CodeLens for method (always show, even if 0)
+                    if (!this.hasCodeLensOfType(codeLenses, method.range, 'implementations')) {
+                        const implTitle = methodImplCount === 0 ? '0 implementations' : (methodImplCount === 1 ? '1 implementation' : `${methodImplCount} implementations`);
+                        const implCommand = methodImplCount > 0
+                            ? {
+                                title: implTitle,
+                                command: 'goImplementationLens.showImplementations',
+                                arguments: [method.implementations]
+                            }
+                            : {
+                                title: implTitle,
+                                command: ''  // No command when 0 implementations
+                            };
+                        const implLens = new vscode.CodeLens(method.range, implCommand);
+                        codeLenses.push(implLens);
+                    }
                 }
             }
         }
@@ -97,16 +153,17 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
         }
 
         // Add code lenses for method implementations
+        // Add these after references so "Implementing:" appears after refs
         for (const methodImpl of methodImplementations) {
             if (methodImpl.interfaceMethod) {
-                // Check if this method is already shown as part of an interface
-                // Skip if we already have a CodeLens for this position (to avoid duplicates)
-                const isDuplicatePosition = codeLenses.some(lens => 
+                // Check if we already have an "Implementing:" CodeLens at this position
+                const hasImplementingLens = codeLenses.some(lens => 
                     lens.range.start.line === methodImpl.range.start.line &&
-                    lens.range.start.character === methodImpl.range.start.character
+                    lens.range.start.character === methodImpl.range.start.character &&
+                    lens.command?.title?.includes('Implementing:')
                 );
                 
-                if (isDuplicatePosition) {
+                if (hasImplementingLens) {
                     continue;
                 }
                 

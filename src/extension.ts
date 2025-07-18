@@ -104,6 +104,99 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    // Command for showing both implementations and references
+    const showImplementationsAndReferencesCommand = vscode.commands.registerCommand(
+        'goImplementationLens.showImplementationsAndReferences',
+        async (implementations: vscode.Location[], references: vscode.Location[]) => {
+            try {
+                const allItems: Array<{label: string, description: string, location: vscode.Location, type: 'implementation' | 'reference'}> = [];
+                
+                // Add implementations
+                if (implementations && implementations.length > 0) {
+                    const implItems = await Promise.all(implementations.map(async (impl) => {
+                        const doc = await vscode.workspace.openTextDocument(impl.uri);
+                        const line = doc.lineAt(impl.range.start.line);
+                        return {
+                            label: `$(symbol-interface) ${vscode.workspace.asRelativePath(impl.uri)}:${impl.range.start.line + 1}`,
+                            description: line.text.trim(),
+                            location: impl,
+                            type: 'implementation' as const
+                        };
+                    }));
+                    allItems.push(...implItems);
+                }
+                
+                // Add references
+                if (references && references.length > 0) {
+                    const refItems = await Promise.all(references.map(async (ref) => {
+                        const doc = await vscode.workspace.openTextDocument(ref.uri);
+                        const line = doc.lineAt(ref.range.start.line);
+                        return {
+                            label: `$(references) ${vscode.workspace.asRelativePath(ref.uri)}:${ref.range.start.line + 1}`,
+                            description: line.text.trim(),
+                            location: ref,
+                            type: 'reference' as const
+                        };
+                    }));
+                    allItems.push(...refItems);
+                }
+                
+                if (allItems.length === 1) {
+                    // Single item - navigate directly
+                    await goToLocation(allItems[0].location);
+                } else if (allItems.length > 1) {
+                    // Multiple items - show quick pick
+                    const selected = await vscode.window.showQuickPick(allItems, {
+                        placeHolder: 'Select an implementation or reference'
+                    });
+                    
+                    if (selected) {
+                        await goToLocation(selected.location);
+                    }
+                }
+            } catch (error) {
+                vscode.window.showErrorMessage(`Error showing implementations and references: ${error}`);
+            }
+        }
+    );
+
+    // Command for showing only references
+    const showReferencesCommand = vscode.commands.registerCommand(
+        'goImplementationLens.showReferences',
+        async (references: vscode.Location[]) => {
+            try {
+                if (references && references.length > 0) {
+                    if (references.length === 1) {
+                        // Single reference - navigate directly
+                        const location = references[0];
+                        await goToLocation(location);
+                    } else {
+                        // Multiple references - show quick pick
+                        const items = await Promise.all(references.map(async (ref, index) => {
+                            const doc = await vscode.workspace.openTextDocument(ref.uri);
+                            const line = doc.lineAt(ref.range.start.line);
+                            return {
+                                label: `${index + 1}. ${vscode.workspace.asRelativePath(ref.uri)}:${ref.range.start.line + 1}`,
+                                description: line.text.trim(),
+                                location: ref
+                            };
+                        }));
+                        
+                        const selected = await vscode.window.showQuickPick(items, {
+                            placeHolder: 'Select a reference'
+                        });
+                        
+                        if (selected) {
+                            await goToLocation(selected.location);
+                        }
+                    }
+                }
+            } catch (error) {
+                vscode.window.showErrorMessage(`Error showing references: ${error}`);
+            }
+        }
+    );
+
     // Simple command for navigating to interface definition
     const goToInterfaceCommand = vscode.commands.registerCommand(
         'goImplementationLens.goToInterface',
@@ -164,6 +257,8 @@ export function activate(context: vscode.ExtensionContext) {
         toggleCodeLensCommand,
         toggleGutterIconsCommand,
         showImplementationsCommand,
+        showImplementationsAndReferencesCommand,
+        showReferencesCommand,
         goToInterfaceCommand,
         goToInterfaceDefinitionsCommand,
         gutterProvider

@@ -6,6 +6,7 @@ export interface InterfaceInfo {
     range: vscode.Range;
     uri: vscode.Uri;
     implementations: vscode.Location[];
+    references: vscode.Location[];
     methods: MethodInfo[];
 }
 
@@ -13,6 +14,7 @@ export interface MethodInfo {
     name: string;
     range: vscode.Range;
     implementations: vscode.Location[];
+    references: vscode.Location[];
 }
 
 export interface TypeInfo {
@@ -29,20 +31,33 @@ export interface TypeMethodInfo {
     interfaceMethod?: vscode.Location;
 }
 
+export interface SymbolReferenceInfo {
+    name: string;
+    range: vscode.Range;
+    uri: vscode.Uri;
+    references: vscode.Location[];
+    kind: vscode.SymbolKind;
+}
+
 export class GoAnalyzer {
-    private cache: Map<string, { interfaces: InterfaceInfo[], types: TypeInfo[], methodImplementations: TypeMethodInfo[], documentVersion: number }> = new Map();
+    private cache: Map<string, { interfaces: InterfaceInfo[], types: TypeInfo[], methodImplementations: TypeMethodInfo[], symbolReferences: SymbolReferenceInfo[], documentVersion: number }> = new Map();
 
     invalidateCache(filePath: string) {
         this.cache.delete(filePath);
     }
 
 
-    async analyzeDocument(document: vscode.TextDocument): Promise<{ interfaces: InterfaceInfo[], types: TypeInfo[], methodImplementations: TypeMethodInfo[] }> {
+    async analyzeDocument(document: vscode.TextDocument): Promise<{ interfaces: InterfaceInfo[], types: TypeInfo[], methodImplementations: TypeMethodInfo[], symbolReferences: SymbolReferenceInfo[] }> {
         const currentVersion = document.version;
         const cached = this.cache.get(document.uri.fsPath);
         
         if (cached && cached.documentVersion === currentVersion) {
-            return { ...cached, methodImplementations: cached.methodImplementations || [] };
+            return { 
+                interfaces: cached.interfaces, 
+                types: cached.types, 
+                methodImplementations: cached.methodImplementations || [], 
+                symbolReferences: cached.symbolReferences || [] 
+            };
         }
 
         const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
@@ -51,19 +66,20 @@ export class GoAnalyzer {
         );
 
         if (!symbols) {
-            return { interfaces: [], types: [], methodImplementations: [] };
+            return { interfaces: [], types: [], methodImplementations: [], symbolReferences: [] };
         }
 
         const interfaces: InterfaceInfo[] = [];
         const types: TypeInfo[] = [];
         const methodImplementations: TypeMethodInfo[] = [];
+        const symbolReferences: SymbolReferenceInfo[] = [];
         
         // Process all symbols recursively
-        await this.processSymbols(symbols, document, interfaces, types, methodImplementations);
+        await this.processSymbols(symbols, document, interfaces, types, methodImplementations, symbolReferences);
 
-        const result = { interfaces, types, methodImplementations, documentVersion: currentVersion };
+        const result = { interfaces, types, methodImplementations, symbolReferences, documentVersion: currentVersion };
         this.cache.set(document.uri.fsPath, result);
-        return { interfaces, types, methodImplementations };
+        return { interfaces, types, methodImplementations, symbolReferences };
     }
 
     private async processSymbols(
@@ -71,7 +87,8 @@ export class GoAnalyzer {
         document: vscode.TextDocument,
         interfaces: InterfaceInfo[],
         types: TypeInfo[],
-        methodImplementations: TypeMethodInfo[]
+        methodImplementations: TypeMethodInfo[],
+        symbolReferences: SymbolReferenceInfo[]
     ) {
         for (const symbol of symbols) {
             
@@ -90,9 +107,47 @@ export class GoAnalyzer {
                 }
             }
             
+            // Check for references on all symbols including interfaces
+            // Note: We still check functions/methods even if they implement interfaces, to show their references
+            if (symbol.kind === vscode.SymbolKind.Interface ||
+                 symbol.kind === vscode.SymbolKind.Function || 
+                 symbol.kind === vscode.SymbolKind.Method ||
+                 symbol.kind === vscode.SymbolKind.Variable ||
+                 symbol.kind === vscode.SymbolKind.Constant ||
+                 symbol.kind === vscode.SymbolKind.Field ||
+                 symbol.kind === vscode.SymbolKind.Property ||
+                 symbol.kind === vscode.SymbolKind.TypeParameter ||
+                 symbol.kind === vscode.SymbolKind.Struct) {
+                
+                const allReferences = await this.getReferencesFromGopls(document.uri, symbol.selectionRange.start);
+                
+                // Filter out self-reference
+                const references = allReferences.filter(ref => {
+                    return !(ref.uri.toString() === document.uri.toString() && 
+                             ref.range.start.line === symbol.selectionRange.start.line &&
+                             ref.range.start.character === symbol.selectionRange.start.character);
+                });
+                
+                // Add if there are references, or always show for functions/methods/interfaces
+                // For other symbols (fields, variables, etc.), only show if they have references
+                if (references.length > 0 || 
+                    symbol.kind === vscode.SymbolKind.Interface ||
+                    symbol.kind === vscode.SymbolKind.Function || 
+                    symbol.kind === vscode.SymbolKind.Method) {
+                    symbolReferences.push({
+                        name: symbol.name,
+                        range: symbol.range,
+                        uri: document.uri,
+                        references: references,
+                        kind: symbol.kind
+                    });
+                }
+            }
+            
             // Process children recursively
-            if (symbol.children && symbol.children.length > 0) {
-                await this.processSymbols(symbol.children, document, interfaces, types, methodImplementations);
+            // Skip children of interfaces as they are already processed in processInterface
+            if (symbol.children && symbol.children.length > 0 && symbol.kind !== vscode.SymbolKind.Interface) {
+                await this.processSymbols(symbol.children, document, interfaces, types, methodImplementations, symbolReferences);
             }
         }
     }
@@ -111,18 +166,52 @@ export class GoAnalyzer {
         }
     }
 
+    private async getReferencesFromGopls(uri: vscode.Uri, position: vscode.Position): Promise<vscode.Location[]> {
+        try {
+            const references = await vscode.commands.executeCommand<vscode.Location[]>(
+                'vscode.executeReferenceProvider',
+                uri,
+                position
+            );
+            
+            return references || [];
+        } catch (error) {
+            return [];
+        }
+    }
+
     private async processInterface(symbol: vscode.DocumentSymbol, document: vscode.TextDocument, implementations: vscode.Location[], interfaces: InterfaceInfo[]) {
         const methods: MethodInfo[] = [];
+        
+        // Get references for the interface
+        const allReferences = await this.getReferencesFromGopls(document.uri, symbol.selectionRange.start);
+        
+        // Filter out self-reference (the interface definition itself)
+        const references = allReferences.filter(ref => {
+            return !(ref.uri.toString() === document.uri.toString() && 
+                     ref.range.start.line === symbol.selectionRange.start.line &&
+                     ref.range.start.character === symbol.selectionRange.start.character);
+        });
         
         // Process interface methods
         if (symbol.children) {
             for (const child of symbol.children) {
                 if (child.kind === vscode.SymbolKind.Method) {
                     const methodImplementations = await this.getImplementationsFromGopls(document.uri, child.range.start);
+                    const allMethodReferences = await this.getReferencesFromGopls(document.uri, child.selectionRange.start);
+                    
+                    // Filter out self-reference for methods too
+                    const methodReferences = allMethodReferences.filter(ref => {
+                        return !(ref.uri.toString() === document.uri.toString() && 
+                                 ref.range.start.line === child.selectionRange.start.line &&
+                                 ref.range.start.character === child.selectionRange.start.character);
+                    });
+                    
                     methods.push({
                         name: child.name,
                         range: child.range,
-                        implementations: methodImplementations
+                        implementations: methodImplementations,
+                        references: methodReferences
                     });
                 }
             }
@@ -133,6 +222,7 @@ export class GoAnalyzer {
             range: symbol.range,
             uri: document.uri,
             implementations: implementations,
+            references: references,
             methods: methods
         });
     }
