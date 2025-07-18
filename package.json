@@ -2,7 +2,7 @@
   "name": "go-implementation-lens",
   "displayName": "Go Implementation Lens",
   "description": "Shows interface implementations in Go code with gutter icons and clickable CodeLens",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "publisher": "AnirudhAgarwal",
   "icon": "gopher-icon-1.png",
   "galleryBanner": {
