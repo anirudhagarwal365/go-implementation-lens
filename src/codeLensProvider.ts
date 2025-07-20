@@ -38,23 +38,27 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
 
         // FIRST PASS: Add all reference counts (to ensure refs always appear first)
         // Add code lenses for symbol references (functions, variables, constants, etc.)
-        for (const symbolRef of symbolReferences) {
-            // Check if we already have a refs CodeLens at this position
-            if (!this.hasCodeLensOfType(codeLenses, symbolRef.range, 'refs')) {
-                const refCount = symbolRef.references.length;
-                const refTitle = refCount === 0 ? '0 refs' : (refCount === 1 ? '1 ref' : `${refCount} refs`);
-                const refCommand = refCount > 0
-                    ? {
-                        title: refTitle,
-                        command: 'goImplementationLens.showReferences',
-                        arguments: [symbolRef.references]
-                    }
-                    : {
-                        title: refTitle,
-                        command: ''  // No command when 0 refs
-                    };
-                const refLens = new vscode.CodeLens(symbolRef.range, refCommand);
-                codeLenses.push(refLens);
+        const showReferences = config.get<boolean>('showReferences', true);
+        
+        if (showReferences) {
+            for (const symbolRef of symbolReferences) {
+                // Check if we already have a refs CodeLens at this position
+                if (!this.hasCodeLensOfType(codeLenses, symbolRef.range, 'refs')) {
+                    const refCount = symbolRef.references.length;
+                    const refTitle = refCount === 0 ? '0 refs' : (refCount === 1 ? '1 ref' : `${refCount} refs`);
+                    const refCommand = refCount > 0
+                        ? {
+                            title: refTitle,
+                            command: 'goImplementationLens.showReferences',
+                            arguments: [symbolRef.references, symbolRef.name]
+                        }
+                        : {
+                            title: refTitle,
+                            command: ''  // No command when 0 refs
+                        };
+                    const refLens = new vscode.CodeLens(symbolRef.range, refCommand);
+                    codeLenses.push(refLens);
+                }
             }
         }
 
@@ -73,7 +77,7 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
                         ? {
                             title: implTitle,
                             command: 'goImplementationLens.showImplementations',
-                            arguments: [interfaceInfo.implementations]
+                            arguments: [interfaceInfo.implementations, interfaceInfo.name]
                         }
                         : {
                             title: implTitle,
@@ -88,14 +92,14 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
                     const methodImplCount = method.implementations.length;
                     const methodRefCount = method.references.length;
                     
-                    // Add reference CodeLens for method (always show, even if 0)
-                    if (!this.hasCodeLensOfType(codeLenses, method.range, 'refs')) {
+                    // Add reference CodeLens for method (only if showReferences is enabled)
+                    if (showReferences && !this.hasCodeLensOfType(codeLenses, method.range, 'refs')) {
                         const refTitle = methodRefCount === 0 ? '0 refs' : (methodRefCount === 1 ? '1 ref' : `${methodRefCount} refs`);
                         const refCommand = methodRefCount > 0
                             ? {
                                 title: refTitle,
                                 command: 'goImplementationLens.showReferences',
-                                arguments: [method.references]
+                                arguments: [method.references, `${interfaceInfo.name}.${method.name}`]
                             }
                             : {
                                 title: refTitle,
@@ -112,7 +116,7 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
                             ? {
                                 title: implTitle,
                                 command: 'goImplementationLens.showImplementations',
-                                arguments: [method.implementations]
+                                arguments: [method.implementations, `${interfaceInfo.name}.${method.name}`]
                             }
                             : {
                                 title: implTitle,

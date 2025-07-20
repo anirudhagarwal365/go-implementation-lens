@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { GoInterfaceCodeLensProvider } from './codeLensProvider';
 import { GoInterfaceGutterProvider } from './gutterDecorationProvider';
 import { GoAnalyzer } from './goAnalyzer';
+import { GoReferenceSidebarProvider } from './sidebarProvider';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Go Implementation Lens - extension is now active!');
@@ -9,6 +10,7 @@ export function activate(context: vscode.ExtensionContext) {
     const goAnalyzer = new GoAnalyzer();
     const codeLensProvider = new GoInterfaceCodeLensProvider(goAnalyzer);
     const gutterProvider = new GoInterfaceGutterProvider(goAnalyzer, context);
+    const sidebarProvider = new GoReferenceSidebarProvider(goAnalyzer);
     
     // Wait a bit for gopls to initialize
     setTimeout(() => {
@@ -21,6 +23,12 @@ export function activate(context: vscode.ExtensionContext) {
         { language: 'go', scheme: 'file' },
         codeLensProvider
     );
+
+    // Register the sidebar view
+    const sidebarView = vscode.window.createTreeView('goReferencesView', {
+        treeDataProvider: sidebarProvider,
+        showCollapseAll: true
+    });
 
     // Update decorations for the active editor
     if (vscode.window.activeTextEditor) {
@@ -70,33 +78,27 @@ export function activate(context: vscode.ExtensionContext) {
     // Command for showing implementations using our analyzed data
     const showImplementationsCommand = vscode.commands.registerCommand(
         'goImplementationLens.showImplementations',
-        async (implementations: vscode.Location[]) => {
+        async (implementations: vscode.Location[], symbolName?: string) => {
             try {
+                const config = vscode.workspace.getConfiguration('goImplementationLens');
+                const useSidebar = config.get<boolean>('useSidebar', true);
+                
                 if (implementations && implementations.length > 0) {
                     if (implementations.length === 1) {
                         // Single implementation - navigate directly
-                        const location = implementations[0];
-                        await goToLocation(location);
+                        await goToLocation(implementations[0]);
+                    } else if (useSidebar) {
+                        // Multiple implementations - update sidebar and show it
+                        sidebarProvider.updateReferences(symbolName || 'Symbol', implementations, []);
+                        await vscode.commands.executeCommand('workbench.view.extension.goReferences');
                     } else {
-                        // Multiple implementations - show quick pick
-                        const items = await Promise.all(implementations.map(async (impl, index) => {
-                            const doc = await vscode.workspace.openTextDocument(impl.uri);
-                            const line = doc.lineAt(impl.range.start.line);
-                            return {
-                                label: `${index + 1}. ${vscode.workspace.asRelativePath(impl.uri)}:${impl.range.start.line + 1}`,
-                                description: line.text.trim(),
-                                location: impl
-                            };
-                        }));
-                        
-                        const selected = await vscode.window.showQuickPick(items, {
-                            placeHolder: 'Select an implementation'
-                        });
-                        
-                        if (selected) {
-                            await goToLocation(selected.location);
-                        }
+                        // Show custom quick pick for implementations
+                        await showQuickPickForLocations(implementations, 'Go to Implementation');
                     }
+                } else if (useSidebar) {
+                    // No implementations - still update sidebar to show empty state
+                    sidebarProvider.updateReferences(symbolName || 'Symbol', [], []);
+                    await vscode.commands.executeCommand('workbench.view.extension.goReferences');
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(`Error showing implementations: ${error}`);
@@ -107,52 +109,30 @@ export function activate(context: vscode.ExtensionContext) {
     // Command for showing both implementations and references
     const showImplementationsAndReferencesCommand = vscode.commands.registerCommand(
         'goImplementationLens.showImplementationsAndReferences',
-        async (implementations: vscode.Location[], references: vscode.Location[]) => {
+        async (implementations: vscode.Location[], references: vscode.Location[], symbolName?: string) => {
             try {
-                const allItems: Array<{label: string, description: string, location: vscode.Location, type: 'implementation' | 'reference'}> = [];
+                const config = vscode.workspace.getConfiguration('goImplementationLens');
+                const useSidebar = config.get<boolean>('useSidebar', true);
+                const allLocations = [...(implementations || []), ...(references || [])];
                 
-                // Add implementations
-                if (implementations && implementations.length > 0) {
-                    const implItems = await Promise.all(implementations.map(async (impl) => {
-                        const doc = await vscode.workspace.openTextDocument(impl.uri);
-                        const line = doc.lineAt(impl.range.start.line);
-                        return {
-                            label: `$(symbol-interface) ${vscode.workspace.asRelativePath(impl.uri)}:${impl.range.start.line + 1}`,
-                            description: line.text.trim(),
-                            location: impl,
-                            type: 'implementation' as const
-                        };
-                    }));
-                    allItems.push(...implItems);
-                }
-                
-                // Add references
-                if (references && references.length > 0) {
-                    const refItems = await Promise.all(references.map(async (ref) => {
-                        const doc = await vscode.workspace.openTextDocument(ref.uri);
-                        const line = doc.lineAt(ref.range.start.line);
-                        return {
-                            label: `$(references) ${vscode.workspace.asRelativePath(ref.uri)}:${ref.range.start.line + 1}`,
-                            description: line.text.trim(),
-                            location: ref,
-                            type: 'reference' as const
-                        };
-                    }));
-                    allItems.push(...refItems);
-                }
-                
-                if (allItems.length === 1) {
-                    // Single item - navigate directly
-                    await goToLocation(allItems[0].location);
-                } else if (allItems.length > 1) {
-                    // Multiple items - show quick pick
-                    const selected = await vscode.window.showQuickPick(allItems, {
-                        placeHolder: 'Select an implementation or reference'
-                    });
-                    
-                    if (selected) {
-                        await goToLocation(selected.location);
+                if (allLocations.length === 1) {
+                    // Single item total - navigate directly
+                    await goToLocation(allLocations[0]);
+                } else if (allLocations.length > 1 && useSidebar) {
+                    // Multiple items - update sidebar and show it
+                    sidebarProvider.updateReferences(symbolName || 'Symbol', implementations || [], references || []);
+                    await vscode.commands.executeCommand('workbench.view.extension.goReferences');
+                } else if (allLocations.length > 1) {
+                    // Show custom quick pick - prefer implementations if available
+                    if (implementations && implementations.length > 0) {
+                        await showQuickPickForLocations(implementations, 'Go to Implementation');
+                    } else if (references && references.length > 0) {
+                        await showQuickPickForLocations(references, 'Go to References');
                     }
+                } else if (useSidebar) {
+                    // No items - still update sidebar to show empty state
+                    sidebarProvider.updateReferences(symbolName || 'Symbol', [], []);
+                    await vscode.commands.executeCommand('workbench.view.extension.goReferences');
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(`Error showing implementations and references: ${error}`);
@@ -163,33 +143,27 @@ export function activate(context: vscode.ExtensionContext) {
     // Command for showing only references
     const showReferencesCommand = vscode.commands.registerCommand(
         'goImplementationLens.showReferences',
-        async (references: vscode.Location[]) => {
+        async (references: vscode.Location[], symbolName?: string) => {
             try {
+                const config = vscode.workspace.getConfiguration('goImplementationLens');
+                const useSidebar = config.get<boolean>('useSidebar', true);
+                
                 if (references && references.length > 0) {
                     if (references.length === 1) {
                         // Single reference - navigate directly
-                        const location = references[0];
-                        await goToLocation(location);
+                        await goToLocation(references[0]);
+                    } else if (useSidebar) {
+                        // Multiple references - update sidebar and show it
+                        sidebarProvider.updateReferences(symbolName || 'Symbol', [], references);
+                        await vscode.commands.executeCommand('workbench.view.extension.goReferences');
                     } else {
-                        // Multiple references - show quick pick
-                        const items = await Promise.all(references.map(async (ref, index) => {
-                            const doc = await vscode.workspace.openTextDocument(ref.uri);
-                            const line = doc.lineAt(ref.range.start.line);
-                            return {
-                                label: `${index + 1}. ${vscode.workspace.asRelativePath(ref.uri)}:${ref.range.start.line + 1}`,
-                                description: line.text.trim(),
-                                location: ref
-                            };
-                        }));
-                        
-                        const selected = await vscode.window.showQuickPick(items, {
-                            placeHolder: 'Select a reference'
-                        });
-                        
-                        if (selected) {
-                            await goToLocation(selected.location);
-                        }
+                        // Show custom quick pick for references
+                        await showQuickPickForLocations(references, 'Go to References');
                     }
+                } else if (useSidebar) {
+                    // No references - still update sidebar to show empty state
+                    sidebarProvider.updateReferences(symbolName || 'Symbol', [], []);
+                    await vscode.commands.executeCommand('workbench.view.extension.goReferences');
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(`Error showing references: ${error}`);
@@ -251,6 +225,18 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    // Command for opening references from the sidebar
+    const openReferenceCommand = vscode.commands.registerCommand(
+        'goImplementationLens.openReference',
+        async (location: vscode.Location) => {
+            try {
+                await goToLocation(location);
+            } catch (error) {
+                vscode.window.showErrorMessage(`Error opening reference: ${error}`);
+            }
+        }
+    );
+
     context.subscriptions.push(
         codeLensProviderDisposable,
         activeEditorChangeDisposable,
@@ -261,7 +247,9 @@ export function activate(context: vscode.ExtensionContext) {
         showReferencesCommand,
         goToInterfaceCommand,
         goToInterfaceDefinitionsCommand,
-        gutterProvider
+        openReferenceCommand,
+        gutterProvider,
+        sidebarView
     );
 
     // Refresh both CodeLens and gutter decorations when documents change
@@ -307,4 +295,56 @@ async function goToLocation(location: vscode.Location) {
     const editor = await vscode.window.showTextDocument(document);
     editor.selection = new vscode.Selection(location.range.start, location.range.start);
     editor.revealRange(location.range, vscode.TextEditorRevealType.InCenter);
+}
+
+async function showQuickPickForLocations(locations: vscode.Location[], title: string) {
+    if (locations.length === 0) {
+        return;
+    }
+
+    if (locations.length === 1) {
+        await goToLocation(locations[0]);
+        return;
+    }
+
+    const items = await Promise.all(locations.map(async (location) => {
+        try {
+            const doc = await vscode.workspace.openTextDocument(location.uri);
+            const line = doc.lineAt(location.range.start.line);
+            
+            // Create relative path from workspace root
+            let relativePath = vscode.workspace.asRelativePath(location.uri);
+            
+            // Show folder structure for better context
+            const pathParts = relativePath.split('/');
+            const fileName = pathParts.pop() || '';
+            const folderPath = pathParts.length > 0 ? pathParts.join('/') : '';
+            
+            return {
+                label: `$(file-code) ${fileName}`,
+                description: folderPath,
+                detail: `Line ${location.range.start.line + 1}: ${line.text.trim()}`,
+                location: location
+            };
+        } catch (error) {
+            // Fallback if we can't read the file
+            const fileName = location.uri.path.split('/').pop() || 'unknown';
+            return {
+                label: `$(file-code) ${fileName}`,
+                description: vscode.workspace.asRelativePath(location.uri),
+                detail: `Line ${location.range.start.line + 1}`,
+                location: location
+            };
+        }
+    }));
+
+    const selected = await vscode.window.showQuickPick(items, {
+        placeHolder: `${title} (${locations.length} found)`,
+        matchOnDescription: true,
+        matchOnDetail: true
+    });
+
+    if (selected) {
+        await goToLocation(selected.location);
+    }
 }

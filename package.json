@@ -2,7 +2,7 @@
   "name": "go-implementation-lens",
   "displayName": "Go Implementation Lens",
   "description": "Shows interface implementations in Go code with gutter icons and clickable CodeLens",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "publisher": "AnirudhAgarwal",
   "icon": "gopher-icon-1.png",
   "galleryBanner": {
@@ -63,6 +63,16 @@
           "type": "boolean",
           "default": true,
           "description": "Show interface/implementation icons in the gutter"
+        },
+        "goImplementationLens.useSidebar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show references and implementations in the sidebar instead of VS Code's built-in popup"
+        },
+        "goImplementationLens.showReferences": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show reference counts and reference navigation functionality"
         }
       }
     },
@@ -74,6 +84,30 @@
       {
         "command": "goImplementationLens.toggleGutterIcons",
         "title": "Go: Toggle Implementation Gutter Icons"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "goReferences",
+          "title": "Go References",
+          "icon": "$(references)"
+        }
+      ]
+    },
+    "views": {
+      "goReferences": [
+        {
+          "id": "goReferencesView",
+          "name": "References & Implementations",
+          "when": "resourceExtname == '.go'"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "goReferencesView",
+        "contents": "Click on a CodeLens to view implementations and references.\n\n[Open Go File](command:workbench.action.files.openFile)"
       }
     ]
   },

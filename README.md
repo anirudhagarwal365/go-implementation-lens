@@ -13,9 +13,22 @@ A VS Code extension that enhances Go development by providing instant visibility
 
 ### 🎯 Smart Navigation
 - **Direct Jump**: Single implementation? Go straight to it with one click
-- **Quick Pick Menu**: Multiple implementations? Choose from an organized list with file locations
+- **Organized Sidebar**: Multiple references/implementations? Browse through a hierarchical view
+- **Quick Pick Fallback**: Prefer VS Code's built-in picker? Toggle with one setting
 
 ![Multiple Implementations Navigation](multi_impl.png)
+
+### 📊 **Organized Sidebar View** ⭐ *New Feature*
+Experience a revolutionary way to browse references and implementations with our hierarchical sidebar that organizes results by package, file, and function for maximum clarity.
+
+![Sidebar Navigation Example](sidebar-example.png)
+
+**Key Benefits:**
+- **Package Grouping**: See which packages contain references at a glance
+- **File Organization**: Browse by individual files within each package  
+- **Function Context**: Understand exactly where references occur within functions
+- **Expandable Tree**: Drill down from high-level overview to specific code lines
+- **Always Available**: Stays open while you navigate, unlike popup dialogs
 
 ### ⚡ Performance Optimized
 - **Intelligent Caching**: Document-level cache minimizes gopls calls
@@ -25,6 +38,7 @@ A VS Code extension that enhances Go development by providing instant visibility
 ### 🎨 Customizable Display
 - **CodeLens**: "N implementations" above interfaces, "Implements: X, Y" above types
 - **Gutter Icons**: Visual markers for quick identification
+- **Sidebar Navigation**: Organized tree view showing references and implementations grouped by package and file
 - **Flexible Configuration**: Enable/disable features to match your workflow
 
 ## How It Works
@@ -42,8 +56,9 @@ The extension leverages gopls (Go language server) through VS Code's `executeImp
    - 📍 Above structs: "Implements: Interface1, Interface2..." link
    - 📍 Gutter icons marking interfaces and implementations
 3. **Click to navigate**:
-   - Single target: Direct navigation
-   - Multiple targets: Selection menu with preview
+   - Single target: Direct navigation to the location
+   - Multiple targets: **Organized sidebar view** with package/file/function hierarchy
+   - Alternative: Quick pick popup (configurable via settings)
 
 ## Requirements
 
@@ -52,9 +67,74 @@ The extension leverages gopls (Go language server) through VS Code's `executeImp
 
 ## Configuration
 
-- `goImplementationLens.enable`: Enable/disable the extension
-- `goImplementationLens.showOnInterfaces`: Show implementations on interface definitions
-- `goImplementationLens.showOnTypes`: Show implemented interfaces on type definitions
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `goImplementationLens.enable` | `true` | Enable/disable the entire extension |
+| `goImplementationLens.showOnInterfaces` | `true` | Show "N implementations" CodeLens above interface definitions |
+| `goImplementationLens.showOnTypes` | `true` | Show "Implements: Interface1, Interface2..." CodeLens above struct/type definitions |
+| `goImplementationLens.showOnInterfaceHeader` | `false` | Show total implementation count on the interface declaration line (in addition to per-method counts) |
+| `goImplementationLens.showGutterIcons` | `true` | Display up/down arrow icons in the editor gutter for interfaces and implementations |
+| `goImplementationLens.showReferences` | `true` | Show "N refs" CodeLens and reference navigation functionality |
+| `goImplementationLens.useSidebar` | `true` | Use organized sidebar view for navigation instead of VS Code's built-in popup |
+
+### Configuration Examples
+
+**Minimal Setup** (implementations only, no references or gutter icons):
+```json
+{
+  "goImplementationLens.showReferences": false,
+  "goImplementationLens.showGutterIcons": false,
+  "goImplementationLens.useSidebar": false
+}
+```
+
+**Implementations Only** (no reference tracking):
+```json
+{
+  "goImplementationLens.showReferences": false
+}
+```
+
+**Maximum Visibility**:
+```json
+{
+  "goImplementationLens.showOnInterfaceHeader": true,
+  "goImplementationLens.showGutterIcons": true,
+  "goImplementationLens.showReferences": true,
+  "goImplementationLens.useSidebar": true
+}
+```
+
+### 🔄 **Navigation Modes**
+
+**🌟 Sidebar Mode** (Default - `useSidebar: true`)
+Opens an organized tree view that stays visible while you browse:
+
+```
+References to MyInterface
+└── 📦 controllers (3 references)
+    └── 📄 user_controller.go (3 references)
+        └── ⚙️ func CreateUser
+            ├── myInterface.DoSomething()
+            ├── result := myInterface.Process()
+            └── return myInterface.Validate()
+```
+
+**⚡ Quick Pick Mode** (`useSidebar: false`)
+Shows a searchable file picker similar to "Go to File":
+```
+Go to Implementation (3 found)
+├── 📄 service.go          internal/services
+│   Line 45: func (s *Service) GetData()...
+├── 📄 temp_service.go     internal/services  
+│   Line 23: func (t *TempService) GetData()...
+└── 📄 grpcHandler.go      internal/controllers
+    Line 67: func (h *Handler) GetData()...
+```
+
+**Which to choose?**
+- **Sidebar**: Best for exploring complex codebases with many references
+- **Quick Pick**: Best for quick navigation when you know what you're looking for
 
 ## Development
 
