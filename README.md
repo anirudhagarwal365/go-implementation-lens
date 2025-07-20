@@ -13,9 +13,22 @@ A VS Code extension that enhances Go development by providing instant visibility
 
 ### 🎯 Smart Navigation
 - **Direct Jump**: Single implementation? Go straight to it with one click
-- **Quick Pick Menu**: Multiple implementations? Choose from an organized list with file locations
+- **Organized Sidebar**: Multiple references/implementations? Browse through a hierarchical view
+- **Quick Pick Fallback**: Prefer VS Code's built-in picker? Toggle with one setting
 
 ![Multiple Implementations Navigation](multi_impl.png)
+
+### 📊 **Organized Sidebar View** ⭐ *New Feature*
+Experience a revolutionary way to browse references and implementations with our hierarchical sidebar that organizes results by package, file, and function for maximum clarity.
+
+![Sidebar Navigation Example](sidebar-example.png)
+
+**Key Benefits:**
+- **Package Grouping**: See which packages contain references at a glance
+- **File Organization**: Browse by individual files within each package  
+- **Function Context**: Understand exactly where references occur within functions
+- **Expandable Tree**: Drill down from high-level overview to specific code lines
+- **Always Available**: Stays open while you navigate, unlike popup dialogs
 
 ### ⚡ Performance Optimized
 - **Intelligent Caching**: Document-level cache minimizes gopls calls
@@ -43,8 +56,9 @@ The extension leverages gopls (Go language server) through VS Code's `executeImp
    - 📍 Above structs: "Implements: Interface1, Interface2..." link
    - 📍 Gutter icons marking interfaces and implementations
 3. **Click to navigate**:
-   - Single target: Direct navigation
-   - Multiple targets: Organized sidebar view or popup (configurable)
+   - Single target: Direct navigation to the location
+   - Multiple targets: **Organized sidebar view** with package/file/function hierarchy
+   - Alternative: Quick pick popup (configurable via settings)
 
 ## Requirements
 
@@ -91,21 +105,36 @@ The extension leverages gopls (Go language server) through VS Code's `executeImp
 }
 ```
 
-### Sidebar vs Popup Navigation
+### 🔄 **Navigation Modes**
 
-By default, clicking on CodeLens links opens an organized sidebar view with a hierarchical display:
+**🌟 Sidebar Mode** (Default - `useSidebar: true`)
+Opens an organized tree view that stays visible while you browse:
 
 ```
 References to MyInterface
-└── controllers (3 references)
-    └── user_controller.go (3 references)
-        └── func CreateUser
+└── 📦 controllers (3 references)
+    └── 📄 user_controller.go (3 references)
+        └── ⚙️ func CreateUser
             ├── myInterface.DoSomething()
             ├── result := myInterface.Process()
             └── return myInterface.Validate()
 ```
 
-If you prefer VS Code's built-in popup behavior, set `goImplementationLens.useSidebar` to `false`.
+**⚡ Quick Pick Mode** (`useSidebar: false`)
+Shows a searchable file picker similar to "Go to File":
+```
+Go to Implementation (3 found)
+├── 📄 service.go          internal/services
+│   Line 45: func (s *Service) GetData()...
+├── 📄 temp_service.go     internal/services  
+│   Line 23: func (t *TempService) GetData()...
+└── 📄 grpcHandler.go      internal/controllers
+    Line 67: func (h *Handler) GetData()...
+```
+
+**Which to choose?**
+- **Sidebar**: Best for exploring complex codebases with many references
+- **Quick Pick**: Best for quick navigation when you know what you're looking for
 
 ## Development
 
