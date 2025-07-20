@@ -80,19 +80,25 @@ export function activate(context: vscode.ExtensionContext) {
         'goImplementationLens.showImplementations',
         async (implementations: vscode.Location[], symbolName?: string) => {
             try {
+                const config = vscode.workspace.getConfiguration('goImplementationLens');
+                const useSidebar = config.get<boolean>('useSidebar', true);
+                
                 if (implementations && implementations.length > 0) {
                     if (implementations.length === 1) {
                         // Single implementation - navigate directly
                         await goToLocation(implementations[0]);
-                    } else {
+                    } else if (useSidebar) {
                         // Multiple implementations - update sidebar and show it
                         sidebarProvider.updateReferences(symbolName || 'Symbol', implementations, []);
                         await vscode.commands.executeCommand('workbench.view.extension.goReferences');
+                    } else {
+                        // Show custom quick pick for implementations
+                        await showQuickPickForLocations(implementations, 'Go to Implementation');
                     }
-                } else {
+                } else if (useSidebar) {
                     // No implementations - still update sidebar to show empty state
                     sidebarProvider.updateReferences(symbolName || 'Symbol', [], []);
-                    await vscode.commands.executeCommand('goReferencesView.focus');
+                    await vscode.commands.executeCommand('workbench.view.extension.goReferences');
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(`Error showing implementations: ${error}`);
@@ -105,19 +111,28 @@ export function activate(context: vscode.ExtensionContext) {
         'goImplementationLens.showImplementationsAndReferences',
         async (implementations: vscode.Location[], references: vscode.Location[], symbolName?: string) => {
             try {
+                const config = vscode.workspace.getConfiguration('goImplementationLens');
+                const useSidebar = config.get<boolean>('useSidebar', true);
                 const allLocations = [...(implementations || []), ...(references || [])];
                 
                 if (allLocations.length === 1) {
                     // Single item total - navigate directly
                     await goToLocation(allLocations[0]);
-                } else if (allLocations.length > 1) {
+                } else if (allLocations.length > 1 && useSidebar) {
                     // Multiple items - update sidebar and show it
                     sidebarProvider.updateReferences(symbolName || 'Symbol', implementations || [], references || []);
-                    await vscode.commands.executeCommand('goReferencesView.focus');
-                } else {
+                    await vscode.commands.executeCommand('workbench.view.extension.goReferences');
+                } else if (allLocations.length > 1) {
+                    // Show custom quick pick - prefer implementations if available
+                    if (implementations && implementations.length > 0) {
+                        await showQuickPickForLocations(implementations, 'Go to Implementation');
+                    } else if (references && references.length > 0) {
+                        await showQuickPickForLocations(references, 'Go to References');
+                    }
+                } else if (useSidebar) {
                     // No items - still update sidebar to show empty state
                     sidebarProvider.updateReferences(symbolName || 'Symbol', [], []);
-                    await vscode.commands.executeCommand('goReferencesView.focus');
+                    await vscode.commands.executeCommand('workbench.view.extension.goReferences');
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(`Error showing implementations and references: ${error}`);
@@ -130,19 +145,25 @@ export function activate(context: vscode.ExtensionContext) {
         'goImplementationLens.showReferences',
         async (references: vscode.Location[], symbolName?: string) => {
             try {
+                const config = vscode.workspace.getConfiguration('goImplementationLens');
+                const useSidebar = config.get<boolean>('useSidebar', true);
+                
                 if (references && references.length > 0) {
                     if (references.length === 1) {
                         // Single reference - navigate directly
                         await goToLocation(references[0]);
-                    } else {
+                    } else if (useSidebar) {
                         // Multiple references - update sidebar and show it
                         sidebarProvider.updateReferences(symbolName || 'Symbol', [], references);
                         await vscode.commands.executeCommand('workbench.view.extension.goReferences');
+                    } else {
+                        // Show custom quick pick for references
+                        await showQuickPickForLocations(references, 'Go to References');
                     }
-                } else {
+                } else if (useSidebar) {
                     // No references - still update sidebar to show empty state
                     sidebarProvider.updateReferences(symbolName || 'Symbol', [], []);
-                    await vscode.commands.executeCommand('goReferencesView.focus');
+                    await vscode.commands.executeCommand('workbench.view.extension.goReferences');
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(`Error showing references: ${error}`);
@@ -274,4 +295,56 @@ async function goToLocation(location: vscode.Location) {
     const editor = await vscode.window.showTextDocument(document);
     editor.selection = new vscode.Selection(location.range.start, location.range.start);
     editor.revealRange(location.range, vscode.TextEditorRevealType.InCenter);
+}
+
+async function showQuickPickForLocations(locations: vscode.Location[], title: string) {
+    if (locations.length === 0) {
+        return;
+    }
+
+    if (locations.length === 1) {
+        await goToLocation(locations[0]);
+        return;
+    }
+
+    const items = await Promise.all(locations.map(async (location) => {
+        try {
+            const doc = await vscode.workspace.openTextDocument(location.uri);
+            const line = doc.lineAt(location.range.start.line);
+            
+            // Create relative path from workspace root
+            let relativePath = vscode.workspace.asRelativePath(location.uri);
+            
+            // Show folder structure for better context
+            const pathParts = relativePath.split('/');
+            const fileName = pathParts.pop() || '';
+            const folderPath = pathParts.length > 0 ? pathParts.join('/') : '';
+            
+            return {
+                label: `$(file-code) ${fileName}`,
+                description: folderPath,
+                detail: `Line ${location.range.start.line + 1}: ${line.text.trim()}`,
+                location: location
+            };
+        } catch (error) {
+            // Fallback if we can't read the file
+            const fileName = location.uri.path.split('/').pop() || 'unknown';
+            return {
+                label: `$(file-code) ${fileName}`,
+                description: vscode.workspace.asRelativePath(location.uri),
+                detail: `Line ${location.range.start.line + 1}`,
+                location: location
+            };
+        }
+    }));
+
+    const selected = await vscode.window.showQuickPick(items, {
+        placeHolder: `${title} (${locations.length} found)`,
+        matchOnDescription: true,
+        matchOnDetail: true
+    });
+
+    if (selected) {
+        await goToLocation(selected.location);
+    }
 }

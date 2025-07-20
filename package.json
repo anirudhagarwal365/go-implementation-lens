@@ -63,6 +63,16 @@
           "type": "boolean",
           "default": true,
           "description": "Show interface/implementation icons in the gutter"
+        },
+        "goImplementationLens.useSidebar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show references and implementations in the sidebar instead of VS Code's built-in popup"
+        },
+        "goImplementationLens.showReferences": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show reference counts and reference navigation functionality"
         }
       }
     },

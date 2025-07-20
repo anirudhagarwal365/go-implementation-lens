@@ -25,6 +25,7 @@ A VS Code extension that enhances Go development by providing instant visibility
 ### 🎨 Customizable Display
 - **CodeLens**: "N implementations" above interfaces, "Implements: X, Y" above types
 - **Gutter Icons**: Visual markers for quick identification
+- **Sidebar Navigation**: Organized tree view showing references and implementations grouped by package and file
 - **Flexible Configuration**: Enable/disable features to match your workflow
 
 ## How It Works
@@ -43,7 +44,7 @@ The extension leverages gopls (Go language server) through VS Code's `executeImp
    - 📍 Gutter icons marking interfaces and implementations
 3. **Click to navigate**:
    - Single target: Direct navigation
-   - Multiple targets: Selection menu with preview
+   - Multiple targets: Organized sidebar view or popup (configurable)
 
 ## Requirements
 
@@ -52,9 +53,59 @@ The extension leverages gopls (Go language server) through VS Code's `executeImp
 
 ## Configuration
 
-- `goImplementationLens.enable`: Enable/disable the extension
-- `goImplementationLens.showOnInterfaces`: Show implementations on interface definitions
-- `goImplementationLens.showOnTypes`: Show implemented interfaces on type definitions
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `goImplementationLens.enable` | `true` | Enable/disable the entire extension |
+| `goImplementationLens.showOnInterfaces` | `true` | Show "N implementations" CodeLens above interface definitions |
+| `goImplementationLens.showOnTypes` | `true` | Show "Implements: Interface1, Interface2..." CodeLens above struct/type definitions |
+| `goImplementationLens.showOnInterfaceHeader` | `false` | Show total implementation count on the interface declaration line (in addition to per-method counts) |
+| `goImplementationLens.showGutterIcons` | `true` | Display up/down arrow icons in the editor gutter for interfaces and implementations |
+| `goImplementationLens.showReferences` | `true` | Show "N refs" CodeLens and reference navigation functionality |
+| `goImplementationLens.useSidebar` | `true` | Use organized sidebar view for navigation instead of VS Code's built-in popup |
+
+### Configuration Examples
+
+**Minimal Setup** (implementations only, no references or gutter icons):
+```json
+{
+  "goImplementationLens.showReferences": false,
+  "goImplementationLens.showGutterIcons": false,
+  "goImplementationLens.useSidebar": false
+}
+```
+
+**Implementations Only** (no reference tracking):
+```json
+{
+  "goImplementationLens.showReferences": false
+}
+```
+
+**Maximum Visibility**:
+```json
+{
+  "goImplementationLens.showOnInterfaceHeader": true,
+  "goImplementationLens.showGutterIcons": true,
+  "goImplementationLens.showReferences": true,
+  "goImplementationLens.useSidebar": true
+}
+```
+
+### Sidebar vs Popup Navigation
+
+By default, clicking on CodeLens links opens an organized sidebar view with a hierarchical display:
+
+```
+References to MyInterface
+└── controllers (3 references)
+    └── user_controller.go (3 references)
+        └── func CreateUser
+            ├── myInterface.DoSomething()
+            ├── result := myInterface.Process()
+            └── return myInterface.Validate()
+```
+
+If you prefer VS Code's built-in popup behavior, set `goImplementationLens.useSidebar` to `false`.
 
 ## Development
 
