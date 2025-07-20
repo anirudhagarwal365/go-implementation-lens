@@ -47,7 +47,7 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
                     ? {
                         title: refTitle,
                         command: 'goImplementationLens.showReferences',
-                        arguments: [symbolRef.references]
+                        arguments: [symbolRef.references, symbolRef.name]
                     }
                     : {
                         title: refTitle,
@@ -73,7 +73,7 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
                         ? {
                             title: implTitle,
                             command: 'goImplementationLens.showImplementations',
-                            arguments: [interfaceInfo.implementations]
+                            arguments: [interfaceInfo.implementations, interfaceInfo.name]
                         }
                         : {
                             title: implTitle,
@@ -95,7 +95,7 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
                             ? {
                                 title: refTitle,
                                 command: 'goImplementationLens.showReferences',
-                                arguments: [method.references]
+                                arguments: [method.references, `${interfaceInfo.name}.${method.name}`]
                             }
                             : {
                                 title: refTitle,
@@ -112,7 +112,7 @@ export class GoInterfaceCodeLensProvider implements vscode.CodeLensProvider {
                             ? {
                                 title: implTitle,
                                 command: 'goImplementationLens.showImplementations',
-                                arguments: [method.implementations]
+                                arguments: [method.implementations, `${interfaceInfo.name}.${method.name}`]
                             }
                             : {
                                 title: implTitle,
